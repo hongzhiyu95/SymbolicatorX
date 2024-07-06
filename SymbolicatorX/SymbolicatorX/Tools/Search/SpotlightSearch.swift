@@ -39,8 +39,10 @@ class SpotlightSearch {
         }
     }
     
-    @objc private func didFinishGathering() {
+    @objc func didFinishGathering() {
         query.stop()
         completion?(query.results as? [NSMetadataItem])
     }
+    
+    
 }

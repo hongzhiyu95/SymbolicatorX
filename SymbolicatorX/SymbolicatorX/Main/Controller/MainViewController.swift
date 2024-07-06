@@ -17,11 +17,8 @@ class MainViewController: BaseViewController {
     var crashFile: CrashFile? {
         didSet {
             if let crashFile = crashFile, dsymFile?.canSymbolicate(crashFile) != true {
-                
                 crashFileDropZoneView.setFile(crashFile.path)
-                dsymFileDropZoneView.reset()
-                dsymFile = nil
-                startSearchForDSYM()
+          
             }
         }
     }
@@ -92,18 +89,18 @@ extension MainViewController: DropZoneViewDelegate {
         
         if dropZoneView == crashFileDropZoneView {
             crashFilePath = fileURL
+            crashFile = CrashFile(path: fileURL)
+            dsymFileDropZoneView.reset()
+            dsymFile = nil
+            startSearchForDSYM()
         } else if dropZoneView == dsymFileDropZoneView {
-            dsymFilePath = fileURL
-            
+            dsymFile = DSYMFile(path: fileURL)
+            stopSearchForDSYM()
+       
         }
-        if let crashFilePath = crashFilePath, 
-            let dsymFilePath = dsymFilePath {
-           
-            dsymFile = DSYMFile(path: dsymFilePath)
-            if let dsymFile = dsymFile {
-                crashFile = CrashFile(path: crashFilePath, dsymFile: dsymFile)
-            }
-           
+        if let crashFilePath = crashFilePath,
+            var dsymFile = dsymFile {
+            crashFile = CrashFile(path: crashFilePath, dsymFile: dsymFile)
         }
     }
 }
@@ -122,19 +119,21 @@ extension MainViewController {
             
             print("DSYM Search Error: \(error)")
         }) { [weak self] (result) in
-            
+            print("DSYM Search result: \(String(describing: result))")
             DispatchQueue.main.async {
+                guard let self = self, let foundDSYMPath = result else { return }
                 defer {
-                    self?.dsymFileDropZoneView.setDetailText(self?.dsymFile?.path.path)
+                    self.dsymFileDropZoneView.setDetailText(self.dsymFile?.path.path)
                 }
-                
-                guard let `self` = self, let foundDSYMPath = result else { return }
-                
                 let foundDSYMURL = URL(fileURLWithPath: foundDSYMPath)
                 self.dsymFile = DSYMFile(path: foundDSYMURL)
                 self.dsymFileDropZoneView.setFile(foundDSYMURL)
             }
         }
+    }
+    
+    private func stopSearchForDSYM() {
+        DSYMSearch.finishSearch()
     }
 }
 // MARK: - UI
