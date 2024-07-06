@@ -40,7 +40,7 @@ public struct CrashFile {
         return extensionLessPath.deletingLastPathComponent().appendingPathComponent(newFilename).appendingPathExtension(originalPathExtension)
     }
     
-    public init?(path: URL) {
+    public init?(path: URL, dsymFile: DSYMFile) {
         
         guard
             var content = try? String(contentsOf: path, encoding: .utf8),
@@ -60,6 +60,14 @@ public struct CrashFile {
             crashInfoConfig(content: content)
         }else{
             self.crashFileType = .crash
+            if #available(macOS 13.0, *) {
+                let binaryUrl = URL(filePath: dsymFile.binaryPath)
+                processName = binaryUrl.lastPathComponent;
+            } else {
+                // Fallback on earlier versions
+                let nsString = dsymFile.binaryPath as NSString
+                processName = nsString.lastPathComponent
+            }
             config(content: content)
         }
     }
@@ -89,7 +97,6 @@ public struct CrashFile {
             pattern: "Loaded modules:.*?0x.*? - 0x.*?\\s+(.*?)\\s+",
             options: [.caseInsensitive, .anchorsMatchLines, .dotMatchesLineSeparators]
         ).first?.first?.trimmed
-        self.processName = self.bundleIdentifier
         self.architecture = content.scan(pattern: "^CPU: (.*?)(\\(.*\\))?$").first?.first?.trimmed.components(separatedBy: " ").first.flatMap(Architecture.init)
         
         self.loadAddress = content.scan(
@@ -117,7 +124,7 @@ public struct CrashFile {
     
     private mutating func config(content: String) {
         self.content = content
-        self.processName = content.scan(pattern: "^Process:\\s+(.+?)\\[").first?.first?.trimmed
+      //  self.processName = content.scan(pattern: "^Process:\\s+(.+?)\\[").first?.first?.trimmed
         self.bundleIdentifier = content.scan(pattern: "^Identifier:\\s+(.+?)$").first?.first?.trimmed
         self.architecture = content.scan(pattern: "^Code Type:(.*?)(\\(.*\\))?$").first?.first?.trimmed
             .components(separatedBy: " ").first.flatMap(Architecture.init)

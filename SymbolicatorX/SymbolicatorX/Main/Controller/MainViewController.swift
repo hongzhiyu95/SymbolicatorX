@@ -10,6 +10,10 @@ import Cocoa
 
 class MainViewController: BaseViewController {
     
+    
+    private var crashFilePath: URL?
+    private var dsymFilePath: URL?
+    
     var crashFile: CrashFile? {
         didSet {
             if let crashFile = crashFile, dsymFile?.canSymbolicate(crashFile) != true {
@@ -87,11 +91,19 @@ extension MainViewController: DropZoneViewDelegate {
     func receivedFile(dropZoneView: DropZoneView, fileURL: URL) {
         
         if dropZoneView == crashFileDropZoneView {
-            
-            crashFile = CrashFile(path: fileURL)
+            crashFilePath = fileURL
         } else if dropZoneView == dsymFileDropZoneView {
+            dsymFilePath = fileURL
             
-            dsymFile = DSYMFile(path: fileURL)
+        }
+        if let crashFilePath = crashFilePath, 
+            let dsymFilePath = dsymFilePath {
+           
+            dsymFile = DSYMFile(path: dsymFilePath)
+            if let dsymFile = dsymFile {
+                crashFile = CrashFile(path: crashFilePath, dsymFile: dsymFile)
+            }
+           
         }
     }
 }
