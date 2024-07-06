@@ -13,6 +13,10 @@ class DSYMSearch {
     typealias CompletionHandler = (String?) -> Void
     typealias ErrorHandler = ([String]) -> Void
     
+    static func finishSearch() {
+        SpotlightSearch.shared.didFinishGathering()
+    }
+    
     static func search(forUUID uuid: String, crashFileDirectory: String?, errorHandler: @escaping ErrorHandler, completion: @escaping CompletionHandler) {
         
         let predicate = NSPredicate(format: "com_apple_xcode_dsym_uuids == %@", uuid)

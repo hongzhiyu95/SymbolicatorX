@@ -40,7 +40,7 @@ public struct CrashFile {
         return extensionLessPath.deletingLastPathComponent().appendingPathComponent(newFilename).appendingPathExtension(originalPathExtension)
     }
     
-    public init?(path: URL, dsymFile: DSYMFile) {
+    public init?(path: URL, dsymFile: DSYMFile? = nil) {
         
         guard
             var content = try? String(contentsOf: path, encoding: .utf8),
@@ -60,17 +60,24 @@ public struct CrashFile {
             crashInfoConfig(content: content)
         }else{
             self.crashFileType = .crash
-            if #available(macOS 13.0, *) {
-                let binaryUrl = URL(filePath: dsymFile.binaryPath)
-                processName = binaryUrl.lastPathComponent;
+            if let dsymFile = dsymFile {
+                if #available(macOS 13.0, *) {
+                    let binaryUrl = URL(filePath: dsymFile.binaryPath)
+                    processName = binaryUrl.lastPathComponent;
+                } else {
+                    // Fallback on earlier versions
+                    let nsString = dsymFile.binaryPath as NSString
+                    processName = nsString.lastPathComponent
+                }
             } else {
-                // Fallback on earlier versions
-                let nsString = dsymFile.binaryPath as NSString
-                processName = nsString.lastPathComponent
             }
-            config(content: content)
+            self.content = content
         }
+        config(content: content, dsymFile: dsymFile)
+        
     }
+    
+    
     
     init?(file: FileModel) {
         guard
@@ -122,12 +129,22 @@ public struct CrashFile {
         ).first?.first?.trimmed).flatMap(BinaryUUID.init)
     }
     
-    private mutating func config(content: String) {
-        self.content = content
-      //  self.processName = content.scan(pattern: "^Process:\\s+(.+?)\\[").first?.first?.trimmed
+    private mutating func config(content: String, dsymFile: DSYMFile? = nil) {
         self.bundleIdentifier = content.scan(pattern: "^Identifier:\\s+(.+?)$").first?.first?.trimmed
         self.architecture = content.scan(pattern: "^Code Type:(.*?)(\\(.*\\))?$").first?.first?.trimmed
             .components(separatedBy: " ").first.flatMap(Architecture.init)
+        if let dsymFile = dsymFile {
+            if #available(macOS 13.0, *) {
+                let binaryUrl = URL(filePath: dsymFile.binaryPath)
+                processName = binaryUrl.lastPathComponent;
+            } else {
+                // Fallback on earlier versions
+                let nsString = dsymFile.binaryPath as NSString
+                processName = nsString.lastPathComponent
+            }
+        } else {
+            processName = content.scan(pattern: "^Process:\\s+(.+?)\\[").first?.first?.trimmed
+        }
 
         if self.architecture?.isIncomplete == true {
             self.architecture = (content.scan(
@@ -164,4 +181,10 @@ public struct CrashFile {
         ).first?.first?.trimmed).flatMap(BinaryUUID.init)
     }
     
+}
+
+extension CrashFile {
+    mutating func setDsymFile(dsymFile: DSYMFile) {
+        config(content: content, dsymFile: dsymFile)
+    }
 }
